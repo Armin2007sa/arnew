@@ -2,8 +2,8 @@
 
 ## Overview | معرفی
 
-AEai is an AI-powered crypto trading bot that uses machine learning and reinforcement learning to analyze markets and generate reliable trading signals.  
-ربات AEai با بهره‌گیری از هوش مصنوعی و الگوریتم‌های یادگیری ماشین، بازارهای رمزارز را تحلیل کرده و سیگنال‌های معاملاتی دقیق ارائه می‌دهد.
+AEai is an automated AI-based crypto trading bot that independently performs market analysis using advanced machine learning, reinforcement learning, and real-time news sentiment analysis.  
+ربات AEai یک سیستم خودکار مبتنی بر هوش مصنوعی است که به‌طور مستقل بازار رمزارز را با استفاده از یادگیری ماشین، یادگیری تقویتی و تحلیل اخبار لحظه‌ای تحلیل می‌کند.
 
 ---
 
