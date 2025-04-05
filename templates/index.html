@@ -1,0 +1,572 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-chart-line me-2"></i>
+                    ربات معاملاتی ارزهای دیجیتال
+                </h4>
+            </div>
+            <div class="card-body">
+                <p class="lead">
+                    این ربات معاملاتی بازارهای ارز دیجیتال را با استفاده از تحلیل پرایس اکشن، جدیدترین استراتژی‌های معاملاتی دنیا و اخبار روز تحلیل می‌کند. در تایم فریم‌های مختلف، یک ارز دیجیتال را انتخاب کنید تا سیگنال‌های معاملاتی همراه با نقاط ورود، اهرم توصیه‌شده، سطوح سود و ضرر را دریافت کنید با درصد خطای پایین.
+                </p>
+                
+                <form method="POST" action="/analyze" class="mt-4">
+                    <div class="mb-3">
+                        <label for="exchange" class="form-label">انتخاب صرافی</label>
+                        <select id="exchange" name="exchange" class="form-select" required>
+                            <option value="">انتخاب صرافی</option>
+                            {% for exchange in exchanges %}
+                            <option value="{{ exchange }}">{{ exchange }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="symbol" class="form-label">انتخاب ارز دیجیتال</label>
+                        <div class="symbol-search-container position-relative">
+                            <input type="text" id="symbol-search-input" class="form-control" placeholder="نام ارز را تایپ کنید... (مثلا BTC یا ETH)" aria-label="جستجوی ارز">
+                            <input type="hidden" id="symbol" name="symbol" required>
+                            <div id="symbol-search-results" class="position-absolute w-100 mt-1 border rounded bg-dark d-none" style="max-height: 250px; overflow-y: auto; z-index: 1000;"></div>
+                        </div>
+                        <small class="form-text text-muted">می‌توانید حداقل دو حرف از نام ارز مورد نظر را تایپ کنید</small>
+                    </div>
+                    
+                    <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const searchInput = document.getElementById('symbol-search-input');
+                        const symbolInput = document.getElementById('symbol');
+                        const resultsContainer = document.getElementById('symbol-search-results');
+                        let allSymbols = [];
+                        let selectedSymbol = '';
+                        
+                        // Function to fetch symbols when exchange is selected
+                        function initSymbolSearch() {
+                            const exchange = document.getElementById('exchange').value;
+                            if (!exchange) return;
+                            
+                            // Clear current symbols
+                            allSymbols = [];
+                            symbolInput.value = '';
+                            searchInput.value = '';
+                            
+                            // Show loading
+                            searchInput.placeholder = "در حال بارگذاری ارزها...";
+                            searchInput.disabled = true;
+                            
+                            // Fetch symbols from server
+                            fetch('/get_symbols', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: new URLSearchParams({ 'exchange': exchange })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    allSymbols = data.symbols || [];
+                                    searchInput.placeholder = "نام ارز را تایپ کنید... (مثلا BTC یا ETH)";
+                                    searchInput.disabled = false;
+                                    
+                                    // Show top symbols as suggestions
+                                    if (allSymbols.length > 0) {
+                                        showTopSymbols();
+                                    }
+                                } else {
+                                    searchInput.placeholder = "خطا در بارگذاری ارزها";
+                                    console.error('Error loading symbols:', data.error);
+                                }
+                            })
+                            .catch(error => {
+                                searchInput.placeholder = "خطا در بارگذاری ارزها";
+                                console.error('Error:', error);
+                            });
+                        }
+                        
+                        // Show top traded symbols as suggestions
+                        function showTopSymbols() {
+                            const popularCoins = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'SOL/USDT', 'XRP/USDT', 'DOGE/USDT'];
+                            const topSymbols = allSymbols.filter(s => popularCoins.includes(s));
+                            
+                            if (topSymbols.length > 0) {
+                                resultsContainer.innerHTML = '<div class="p-2 text-muted small">ارز‌های محبوب:</div>';
+                                
+                                topSymbols.forEach(symbol => {
+                                    const div = document.createElement('div');
+                                    div.className = 'p-2 symbol-option';
+                                    div.textContent = symbol;
+                                    div.addEventListener('click', () => selectSymbol(symbol));
+                                    resultsContainer.appendChild(div);
+                                });
+                                
+                                resultsContainer.classList.remove('d-none');
+                            }
+                        }
+                        
+                        // Function to filter symbols based on search
+                        function filterSymbols(query) {
+                            if (!query || query.length < 2) {
+                                if (query.length === 0) showTopSymbols();
+                                return;
+                            }
+                            
+                            query = query.toLowerCase();
+                            const filteredSymbols = allSymbols.filter(symbol => 
+                                symbol.toLowerCase().includes(query)
+                            ).slice(0, 10); // Limit to top 10 results
+                            
+                            resultsContainer.innerHTML = '';
+                            
+                            if (filteredSymbols.length === 0) {
+                                const div = document.createElement('div');
+                                div.className = 'p-2 text-muted';
+                                div.textContent = 'ارزی با این نام یافت نشد';
+                                resultsContainer.appendChild(div);
+                            } else {
+                                filteredSymbols.forEach(symbol => {
+                                    const div = document.createElement('div');
+                                    div.className = 'p-2 symbol-option';
+                                    // Highlight the matched part
+                                    const index = symbol.toLowerCase().indexOf(query);
+                                    if (index >= 0) {
+                                        const before = symbol.substring(0, index);
+                                        const match = symbol.substring(index, index + query.length);
+                                        const after = symbol.substring(index + query.length);
+                                        div.innerHTML = before + '<strong class="text-warning">' + match + '</strong>' + after;
+                                    } else {
+                                        div.textContent = symbol;
+                                    }
+                                    div.addEventListener('click', () => selectSymbol(symbol));
+                                    resultsContainer.appendChild(div);
+                                });
+                            }
+                            
+                            resultsContainer.classList.remove('d-none');
+                        }
+                        
+                        // Function to select a symbol
+                        function selectSymbol(symbol) {
+                            searchInput.value = symbol;
+                            symbolInput.value = symbol;
+                            selectedSymbol = symbol;
+                            resultsContainer.classList.add('d-none');
+                            
+                            // Add selected styling
+                            searchInput.classList.add('border-success');
+                            // Trigger validation
+                            searchInput.setCustomValidity('');
+                        }
+                        
+                        // Add event listeners
+                        searchInput.addEventListener('input', function() {
+                            filterSymbols(this.value);
+                            // Clear selected symbol if search text changes
+                            if (this.value !== selectedSymbol) {
+                                symbolInput.value = '';
+                                searchInput.classList.remove('border-success');
+                            }
+                        });
+                        
+                        searchInput.addEventListener('focus', function() {
+                            if (allSymbols.length > 0) {
+                                if (this.value.length >= 2) {
+                                    filterSymbols(this.value);
+                                } else {
+                                    showTopSymbols();
+                                }
+                            }
+                        });
+                        
+                        // Close results when clicking outside
+                        document.addEventListener('click', function(e) {
+                            if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+                                resultsContainer.classList.add('d-none');
+                            }
+                        });
+                        
+                        // Form validation
+                        const form = document.querySelector('form[action="/analyze"]');
+                        if (form) {
+                            form.addEventListener('submit', function(e) {
+                                if (!symbolInput.value) {
+                                    e.preventDefault();
+                                    searchInput.setCustomValidity('لطفاً یک ارز را انتخاب کنید');
+                                    searchInput.reportValidity();
+                                }
+                            });
+                        }
+                        
+                        // Initialize when exchange changes
+                        const exchangeSelect = document.getElementById('exchange');
+                        if (exchangeSelect) {
+                            exchangeSelect.addEventListener('change', initSymbolSearch);
+                        }
+                        
+                        // Add CSS styles for search results
+                        const style = document.createElement('style');
+                        style.textContent = `
+                            .symbol-option {
+                                cursor: pointer;
+                                transition: background-color 0.2s;
+                            }
+                            .symbol-option:hover {
+                                background-color: rgba(255, 255, 255, 0.1);
+                            }
+                        `;
+                        document.head.appendChild(style);
+                    });
+                    </script>
+                    
+                    <div class="mb-3">
+                        <label for="timeframe" class="form-label">انتخاب تایم‌فریم</label>
+                        <select id="timeframe" name="timeframe" class="form-select" required>
+                            <option value="1m">۱ دقیقه</option>
+                            <option value="5m" selected>۵ دقیقه</option>
+                            <option value="15m">۱۵ دقیقه</option>
+                            <option value="30m">۳۰ دقیقه</option>
+                            <option value="1h">۱ ساعت</option>
+                            <option value="4h">۴ ساعت</option>
+                            <option value="1d">روزانه</option>
+                        </select>
+                    </div>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">انتخاب سبک تحلیل</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input strategy-radio" type="radio" name="analysis_type" id="strategy_ai" value="ai" checked>
+                                        <label class="form-check-label w-100 strategy-label p-2" for="strategy_ai">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <strong>تحلیل هوشمند AI</strong>
+                                                <span class="badge bg-danger">جدید</span>
+                                            </div>
+                                            <small class="text-muted d-block">تحلیل خودکار با بهترین پارامترها و دقت بالا</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input strategy-radio" type="radio" name="analysis_type" id="strategy_aeai" value="aeai">
+                                        <label class="form-check-label w-100 strategy-label p-2" for="strategy_aeai">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <strong>تحلیل AEai (علاءالدین)</strong>
+                                                <span class="badge bg-success">محبوب</span>
+                                            </div>
+                                            <small class="text-muted d-block">تحلیل با الگوهای قیمتی ترکیبی</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input strategy-radio" type="radio" name="analysis_type" id="strategy_modern" value="modern">
+                                        <label class="form-check-label w-100 strategy-label p-2" for="strategy_modern">
+                                            <strong>پرایس اکشن مدرن</strong>
+                                            <small class="text-muted d-block">تحلیل بر اساس الگوهای قیمتی پیشرفته</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input strategy-radio" type="radio" name="analysis_type" id="strategy_indicator" value="indicator">
+                                        <label class="form-check-label w-100 strategy-label p-2" for="strategy_indicator">
+                                            <strong>تحلیل اندیکاتورها</strong>
+                                            <small class="text-muted d-block">استفاده از شاخص‌های فنی مانند RSI</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-12">
+                                    <a class="btn btn-sm btn-outline-secondary w-100 mb-3" data-bs-toggle="collapse" href="#advancedStrategies" role="button">
+                                        نمایش سبک‌های تحلیل پیشرفته <i class="fas fa-chevron-down"></i>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="collapse" id="advancedStrategies">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input strategy-radio" type="radio" name="analysis_type" id="strategy_supply_demand" value="supply_demand">
+                                            <label class="form-check-label w-100 strategy-label p-2" for="strategy_supply_demand">
+                                                <strong>تحلیل عرضه و تقاضا</strong>
+                                                <small class="text-muted d-block">بررسی نقاط تعادل عرضه و تقاضا در بازار</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input strategy-radio" type="radio" name="analysis_type" id="strategy_elliott" value="elliott">
+                                            <label class="form-check-label w-100 strategy-label p-2" for="strategy_elliott">
+                                                <strong>امواج الیوت</strong>
+                                                <small class="text-muted d-block">شناسایی الگوهای موجی در حرکت قیمت</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input strategy-radio" type="radio" name="analysis_type" id="strategy_harmonic" value="harmonic">
+                                            <label class="form-check-label w-100 strategy-label p-2" for="strategy_harmonic">
+                                                <strong>الگوهای هارمونیک</strong>
+                                                <small class="text-muted d-block">تشخیص الگوهای هارمونیک مانند بت، گارتلی و...</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input strategy-radio" type="radio" name="analysis_type" id="strategy_time" value="time">
+                                            <label class="form-check-label w-100 strategy-label p-2" for="strategy_time">
+                                                <strong>تحلیل زمانی</strong>
+                                                <small class="text-muted d-block">بررسی چرخه‌های زمانی و نقاط بازگشت قیمت</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input strategy-radio" type="radio" name="analysis_type" id="strategy_multi" value="multi">
+                                            <label class="form-check-label w-100 strategy-label p-2" for="strategy_multi">
+                                                <strong>تحلیل ترکیبی</strong>
+                                                <small class="text-muted d-block">استفاده همزمان از چندین روش تحلیل</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <style>
+                        .strategy-label {
+                            border: 1px solid #2c2c2c;
+                            border-radius: 0.25rem;
+                            cursor: pointer;
+                            transition: all 0.2s ease-in-out;
+                        }
+                        .strategy-radio:checked + .strategy-label {
+                            background-color: rgba(13, 110, 253, 0.2);
+                            border-color: #0d6efd;
+                        }
+                        .strategy-label:hover {
+                            background-color: rgba(13, 110, 253, 0.1);
+                        }
+                    </style>
+                    
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg w-100 py-3">
+                            <i class="fas fa-chart-line me-2"></i>
+                            تحلیل ارز انتخاب شده
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card shadow mt-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    نحوه عملکرد
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">
+                        <strong>تحلیل اکشن قیمت</strong>: ربات الگوهای کندل استیک، سایه‌ها، بلوک‌های سفارش، پولبک‌ها و واکنش‌های قیمت را تحلیل می‌کند.
+                    </li>
+                    <li class="list-group-item">
+                        <strong>شاخص‌های تکنیکال</strong>: از شاخص‌های متعدد مانند RSI، MACD، استوکاستیک و باندهای بولینگر برای تحلیل دقیق‌تر استفاده می‌کند.
+                    </li>
+                    <li class="list-group-item">
+                        <strong>سبک‌های مختلف تحلیل</strong>: پشتیبانی از ۹ سبک متفاوت تحلیل شامل تحلیل هوش مصنوعی (AI)، AEai، پرایس اکشن مدرن، اندیکاتور، عرضه و تقاضا، امواج الیوت، هارمونیک و تحلیل زمانی.
+                    </li>
+                    <li class="list-group-item">
+                        <strong>تایم فریم‌های متنوع</strong>: امکان انتخاب تایم فریم‌های مختلف از ۱ دقیقه تا روزانه برای تحلیل بازار و دریافت سیگنال های معاملاتی.
+                    </li>
+                    <li class="list-group-item">
+                        <strong>جزئیات کامل سیگنال</strong>: هر سیگنال شامل قیمت ورود، اهرم توصیه شده، سطوح سود و ضرر، به همراه تصویر گرافیکی از تحلیل و توضیحات جامع است.
+                    </li>
+                    <li class="list-group-item">
+                        <strong>تحلیل خودکار</strong>: قابلیت انتخاب خودکار بهترین فرصت معاملاتی در بین ارزهای برتر بازار بر اساس بهترین سبک‌های معاملاتی جهانی.
+                    </li>
+                    <li class="list-group-item">
+                        <strong>بهینه‌سازی استراتژی</strong>: امکان بهینه‌سازی خودکار استراتژی معاملاتی از طریق بک‌تست داده‌های تاریخی برای دستیابی به بهترین عملکرد.
+                    </li>
+                    <li class="list-group-item">
+                        <strong>تحلیل ترکیبی</strong>: قابلیت ترکیب چندین سبک تحلیل مختلف برای رسیدن به تصمیم‌گیری دقیق‌تر و کامل‌تر.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Optimization Modal -->
+<div class="modal fade" id="optimizeModal" tabindex="-1" aria-labelledby="optimizeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="optimizeModalLabel">بهینه‌سازی استراتژی معاملاتی</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    بهینه‌سازی استراتژی، ترکیب‌های متعدد پارامترها را آزمایش می‌کند تا بهترین تنظیمات را برای بازار انتخاب شده پیدا کند.
+                    این فرآیند ممکن است مدتی طول بکشد.
+                </p>
+                
+                <form id="optimizeForm" method="POST" action="/optimize_strategy">
+                    <div class="mb-3">
+                        <label for="optimize-exchange" class="form-label">انتخاب صرافی</label>
+                        <select id="optimize-exchange" name="exchange" class="form-select" required>
+                            <option value="">انتخاب صرافی</option>
+                            {% for exchange in exchanges %}
+                            <option value="{{ exchange }}">{{ exchange }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="optimize-symbol" class="form-label">انتخاب ارز دیجیتال</label>
+                        <select id="optimize-symbol" name="symbol" class="form-select" required>
+                            <option value="">ابتدا صرافی را انتخاب کنید</option>
+                        </select>
+                    </div>
+                    
+                    <div id="optimization-status" class="d-none">
+                        <div class="progress mt-3">
+                            <div id="optimization-progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <p class="text-center mt-2" id="optimization-message">بهینه‌سازی در حال انجام...</p>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+                <button type="submit" form="optimizeForm" class="btn btn-primary" id="start-optimization">شروع بهینه‌سازی</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Handle optimization form
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize symbol search functionality
+        const symbolSearchInput = document.getElementById('symbol-search');
+        const symbolSelect = document.getElementById('symbol');
+        
+        // Add event listener for symbol search input
+        if (symbolSearchInput) {
+            symbolSearchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const options = symbolSelect.querySelectorAll('option');
+                
+                options.forEach(option => {
+                    // Skip the first option (placeholder)
+                    if (option.value === '') return;
+                    
+                    const optionText = option.textContent.toLowerCase();
+                    if (optionText.includes(searchTerm)) {
+                        option.style.display = '';
+                    } else {
+                        option.style.display = 'none';
+                    }
+                });
+                
+                // If search term matches only one option, select it
+                const visibleOptions = Array.from(options).filter(opt => 
+                    opt.value !== '' && opt.style.display !== 'none'
+                );
+                
+                if (visibleOptions.length === 1) {
+                    symbolSelect.value = visibleOptions[0].value;
+                }
+            });
+        }
+        
+        // Copy exchange selection to optimization modal
+        document.getElementById('exchange').addEventListener('change', function() {
+            document.getElementById('optimize-exchange').value = this.value;
+            // Also copy the symbols
+            const symbolSelect = document.getElementById('symbol');
+            const optimizeSymbolSelect = document.getElementById('optimize-symbol');
+            optimizeSymbolSelect.innerHTML = symbolSelect.innerHTML;
+        });
+        
+        // Handle optimization form submission
+        document.getElementById('optimizeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Show status elements
+            document.getElementById('optimization-status').classList.remove('d-none');
+            document.getElementById('start-optimization').disabled = true;
+            
+            // Start optimization
+            fetch('/optimize_strategy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams(new FormData(this))
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Update UI with result
+                if (data.success) {
+                    checkOptimizationStatus();
+                } else {
+                    document.getElementById('optimization-message').textContent = 'Error: ' + data.error;
+                    document.getElementById('start-optimization').disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('optimization-message').textContent = 'Error: Could not start optimization';
+                document.getElementById('start-optimization').disabled = false;
+            });
+        });
+        
+        // Function to check optimization status
+        function checkOptimizationStatus() {
+            fetch('/optimization_status')
+            .then(response => response.json())
+            .then(data => {
+                // Update progress bar
+                document.getElementById('optimization-progress').style.width = data.progress + '%';
+                
+                if (data.running) {
+                    // Check again in 2 seconds
+                    setTimeout(checkOptimizationStatus, 2000);
+                } else {
+                    // Optimization completed
+                    document.getElementById('optimization-message').textContent = 'Optimization completed!';
+                    document.getElementById('start-optimization').disabled = false;
+                    
+                    // If we have results, display them
+                    if (data.results) {
+                        const resultMsg = `Best PnL: ${data.results.best_pnl.toFixed(2)} (${data.results.total_tests} configurations tested)`;
+                        document.getElementById('optimization-message').textContent = resultMsg;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('optimization-message').textContent = 'Error checking optimization status';
+                document.getElementById('start-optimization').disabled = false;
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-robot me-2"></i>
+                    ربات معاملاتی ارزهای دیجیتال علاءالدین
+                </h4>
+            </div>
+            <div class="card-body">
+                <p class="lead">
+                    این ربات هوشمند بصورت خودکار بازارهای ارز دیجیتال را با استفاده از هوش مصنوعی پیشرفته، تحلیل پرایس اکشن و اخبار روز تحلیل می‌کند. سیگنال‌های معاملاتی همراه با نقاط ورود، اهرم توصیه‌شده، سطوح سود و ضرر را با درصد خطای پایین دریافت کنید.
+                </p>
+                
+                <div class="row mt-5">
+                    <div class="col-md-12 mb-4">
+                        <div class="card h-100 bg-dark text-white hover-card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-magic fa-4x mb-3 text-info"></i>
+                                <h5 class="card-title">تحلیل چندگانه ارزها به سبک علاءالدین</h5>
+                                <p class="card-text">سیگنال‌های معاملاتی دقیق چندین ارز محبوب با استفاده از روش پیشرفته علاءالدین</p>
+                                <form method="POST" action="/multi_analyze" class="mt-4">
+                                    <input type="hidden" name="analysis_type" value="aeai">
+                                    <button type="submit" class="btn btn-lg btn-success w-100">
+                                        <i class="fas fa-magic me-2"></i>
+                                        دریافت چند سیگنال به سبک علاءالدین
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="card-footer text-center">
+                                <span class="badge bg-success">پیشنهادی</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-4">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="fas fa-info-circle fa-2x"></i>
+                        </div>
+                        <div>
+                            <h5>ربات چگونه کار می‌کند؟</h5>
+                            <p>این ربات بطور خودکار ارزهای برتر را از بین صدها ارز موجود در بازار انتخاب می‌کند و آنها را با دقت تحلیل می‌کند. برای هر ارز، ربات یک سیگنال معاملاتی کامل شامل نقطه ورود، حد ضرر، چندین حد سود، درصد اطمینان و میزان اهرم پیشنهادی تولید می‌کند.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Benefits section -->
+        <div class="row mt-4">
+            <div class="col-md-4 mb-3">
+                <div class="card bg-dark text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-bolt text-warning mb-3 fa-2x"></i>
+                        <h5>تحلیل سریع</h5>
+                        <p>در کمتر از چند ثانیه، سیگنال‌های معاملاتی دقیق دریافت کنید</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card bg-dark text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-chart-line text-success mb-3 fa-2x"></i>
+                        <h5>دقت بالا</h5>
+                        <p>تحلیل با استفاده از الگوریتم‌های پیشرفته هوش مصنوعی</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card bg-dark text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-search-dollar text-info mb-3 fa-2x"></i>
+                        <h5>انتخاب هوشمند</h5>
+                        <p>انتخاب خودکار بهترین فرصت‌های معاملاتی از بین صدها ارز</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.hover-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.hover-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+}
+</style>
+{% endblock %}

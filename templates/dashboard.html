@@ -1,0 +1,237 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Welcome, {{ current_user.username }}</h2>
+        <div class="card bg-dark mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Account Overview</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p>Total Profit/Loss: <span id="total-profit" class="{% if total_profit >= 0 %}text-success{% else %}text-danger{% endif %}">{{ total_profit }}</span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p>Active Strategies: {{ strategies|selectattr('is_active', 'equalto', true)|list|length }}/{{ strategies|length }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card bg-dark mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Trading Strategies</h5>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#newStrategyModal">Add Strategy</button>
+            </div>
+            <div class="card-body">
+                {% if strategies %}
+                <div class="table-responsive">
+                    <table class="table table-dark">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for strategy in strategies %}
+                            <tr>
+                                <td>{{ strategy.name }}</td>
+                                <td>{{ strategy.strategy_type }}</td>
+                                <td>
+                                    {% if strategy.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if strategy.is_active %}
+                                    <form method="POST" action="{{ url_for('deactivate_strategy', strategy_id=strategy.id) }}" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-warning">Deactivate</button>
+                                    </form>
+                                    {% else %}
+                                    <form method="POST" action="{{ url_for('activate_strategy', strategy_id=strategy.id) }}" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-success">Activate</button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p>No strategies found. Create a new strategy to get started.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card bg-dark mb-4">
+            <div class="card-header">
+                <h5>Recent Trades</h5>
+            </div>
+            <div class="card-body">
+                {% if trade_history %}
+                <div class="table-responsive">
+                    <table class="table table-dark">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Symbol</th>
+                                <th>Type</th>
+                                <th>Price</th>
+                                <th>Profit/Loss</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for trade in trade_history %}
+                            <tr>
+                                <td>{{ trade.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>{{ trade.symbol }}</td>
+                                <td>{{ trade.trade_type }}</td>
+                                <td>{{ trade.price }}</td>
+                                <td class="{% if trade.profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ trade.profit_loss }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p>No trade history yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card bg-dark">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">API Configuration</h5>
+                {% if not has_api_keys %}
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#apiSetupModal">Set API Keys</button>
+                {% else %}
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#apiSetupModal">Update API Keys</button>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if has_api_keys %}
+                <p>API keys configured.</p>
+                {% else %}
+                <p>No API keys configured. Please set up your API keys to enable trading.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- API Setup Modal -->
+<div class="modal fade" id="apiSetupModal" tabindex="-1" aria-labelledby="apiSetupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+            <div class="modal-header">
+                <h5 class="modal-title" id="apiSetupModalLabel">Set API Keys</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('setup_api') }}">
+                    <div class="mb-3">
+                        <label for="exchange" class="form-label">Exchange</label>
+                        <select class="form-select" id="exchange" name="exchange" required>
+                            <option value="binance">Binance</option>
+                            <option value="coinbase">Coinbase</option>
+                            <option value="kraken">Kraken</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="api_key" class="form-label">API Key</label>
+                        <input type="text" class="form-control" id="api_key" name="api_key" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="api_secret" class="form-label">API Secret</label>
+                        <input type="password" class="form-control" id="api_secret" name="api_secret" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Save API Keys</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Strategy Modal -->
+<div class="modal fade" id="newStrategyModal" tabindex="-1" aria-labelledby="newStrategyModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newStrategyModalLabel">Create New Strategy</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('create_strategy') }}">
+                    <div class="mb-3">
+                        <label for="strategy_name" class="form-label">Strategy Name</label>
+                        <input type="text" class="form-control" id="strategy_name" name="strategy_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="strategy_type" class="form-label">Strategy Type</label>
+                        <select class="form-select" id="strategy_type" name="strategy_type" required>
+                            <option value="sma_crossover">SMA Crossover</option>
+                            <option value="rsi_strategy">RSI Strategy</option>
+                            <option value="macd_strategy">MACD Strategy</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="asset" class="form-label">Trading Pair</label>
+                        <select class="form-select" id="asset" name="asset" required>
+                            <option value="BTC/USDT">BTC/USDT</option>
+                            <option value="ETH/USDT">ETH/USDT</option>
+                            <option value="SOL/USDT">SOL/USDT</option>
+                            <option value="BNB/USDT">BNB/USDT</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="time_frame" class="form-label">Time Frame</label>
+                        <select class="form-select" id="time_frame" name="time_frame" required>
+                            <option value="1m">1 Minute</option>
+                            <option value="5m">5 Minutes</option>
+                            <option value="15m">15 Minutes</option>
+                            <option value="1h">1 Hour</option>
+                            <option value="4h">4 Hours</option>
+                            <option value="1d">1 Day</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="risk_level" class="form-label">Risk Level</label>
+                        <select class="form-select" id="risk_level" name="risk_level" required>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="initial_investment" class="form-label">Initial Investment (USDT)</label>
+                        <input type="number" class="form-control" id="initial_investment" name="initial_investment" min="10" step="10" value="100" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Create Strategy</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

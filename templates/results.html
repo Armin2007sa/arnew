@@ -1,0 +1,399 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card mb-4 text-center">
+            <div class="card-body">
+                <h4 class="mb-3">
+                    <i class="fas fa-chart-line me-2"></i>
+                    تحلیل ارز {{ symbol }} 
+                    {% if timeframe == '1m' %}
+                    (۱ دقیقه‌ای)
+                    {% elif timeframe == '5m' %}
+                    (۵ دقیقه‌ای)
+                    {% elif timeframe == '15m' %}
+                    (۱۵ دقیقه‌ای)
+                    {% elif timeframe == '30m' %}
+                    (۳۰ دقیقه‌ای)
+                    {% elif timeframe == '1h' %}
+                    (۱ ساعته)
+                    {% elif timeframe == '4h' %}
+                    (۴ ساعته)
+                    {% elif timeframe == '1d' %}
+                    (روزانه)
+                    {% else %}
+                    ({{ timeframe }})
+                    {% endif %}
+                </h4>
+                <!-- Display the original selected symbol if different -->
+                {% if session.selected_symbol and session.selected_symbol != symbol %}
+                <div class="alert alert-warning">
+                    <strong>توجه:</strong> ارز انتخاب شده اصلی: <strong>{{ session.selected_symbol }}</strong> بود، اما ارز <strong>{{ symbol }}</strong> تحلیل شده است.
+                </div>
+                {% endif %}
+
+                <!-- Hidden data for processing -->
+                <input type="hidden" id="signal-data" value='{{ signal|tojson }}'>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card shadow mb-4 signal-card 
+            {% if signal.signal == 'LONG' %}signal-long
+            {% elif signal.signal == 'SHORT' %}signal-short
+            {% elif signal.signal == 'ERROR' %}signal-error
+            {% else %}signal-none{% endif %}">
+            <div class="card-header {% if signal.signal == 'LONG' %}bg-success{% elif signal.signal == 'SHORT' %}bg-danger{% else %}bg-secondary{% endif %} text-white">
+                <h4 class="mb-0">
+                    {% if signal.signal == 'LONG' %}
+                    <i class="fas fa-arrow-up me-2"></i> سیگنال خرید
+                    {% elif signal.signal == 'SHORT' %}
+                    <i class="fas fa-arrow-down me-2"></i> سیگنال فروش
+                    {% elif signal.signal == 'ERROR' %}
+                    <i class="fas fa-exclamation-triangle me-2"></i> خطا
+                    {% else %}
+                    <i class="fas fa-ban me-2"></i> بدون سیگنال
+                    {% endif %}
+                </h4>
+            </div>
+            <div class="card-body">
+                {% if signal.signal == 'LONG' or signal.signal == 'SHORT' %}
+                <h5 class="card-title">سیگنال معاملاتی {{ symbol }}</h5>
+                <p class="card-text text-muted">تولید شده در {{ signal.timestamp }}</p>
+                
+                <!-- Confidence indicator -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>اطمینان: {{ signal.confidence }}%</span>
+                    </div>
+                    <div class="confidence-indicator">
+                        <div class="confidence-bar {% if signal.signal == 'LONG' %}bg-success{% else %}bg-danger{% endif %}" 
+                             style="width: {{ signal.confidence }}%"></div>
+                    </div>
+                </div>
+                
+                <ul class="signal-details mt-4">
+                    <li><strong>قیمت ورود:</strong> {{ signal.entry }}</li>
+                    <li><strong>حد ضرر:</strong> {{ signal.stop_loss }}</li>
+                    <li><strong>حد سود 1:</strong> {{ signal.take_profit }}</li>
+                    {% if signal.signal == 'LONG' %}
+                    <li><strong>حد سود 2:</strong> {{ signal.entry|float * 1.05 }}</li>
+                    <li><strong>حد سود 3:</strong> {{ signal.entry|float * 1.08 }}</li>
+                    {% else %}
+                    <li><strong>حد سود 2:</strong> {{ signal.entry|float * 0.95 }}</li>
+                    <li><strong>حد سود 3:</strong> {{ signal.entry|float * 0.92 }}</li>
+                    {% endif %}
+                    <li><strong>اهرم پیشنهادی:</strong> {{ signal.leverage }}x</li>
+                    <li><strong>ریسک به ازای هر معامله:</strong> {{ signal.risk_percent }}%</li>
+                </ul>
+                
+                <div class="mt-3">
+                    <div class="card bg-dark text-white">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">خلاصه سیگنال</h6>
+                            <button class="btn btn-sm btn-outline-light copy-signal-btn" onclick="copySignalText()">
+                                <i class="fas fa-copy me-1"></i> کپی سیگنال
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="signal-summary" id="signal-summary-text">
+                                {% if signal.signal == 'LONG' %}
+                                🟢 #{{ symbol.replace('/', '_') }} Buy
+                                {% else %}
+                                🔴 #{{ symbol.replace('/', '_') }} Sell
+                                {% endif %}
+                                
+                                📌 Entry: {{ signal.entry }} Market
+                                
+                                🔚 Stop: {{ signal.stop_loss }} ({{ ((signal.stop_loss - signal.entry) / signal.entry * 100)|abs|round(2) }}%)
+                                
+                                🔝TP1: {{ signal.take_profit }}
+                                {% if signal.signal == 'LONG' %}
+                                🔝TP2: {{ signal.entry|float * 1.05 }}
+                                🔝TP3: {{ signal.entry|float * 1.08 }}
+                                {% else %}
+                                🔝TP2: {{ signal.entry|float * 0.95 }}
+                                🔝TP3: {{ signal.entry|float * 0.92 }}
+                                {% endif %}
+                                
+                                ✖️Leverage: {{ signal.leverage }}x / {{ signal.leverage * 2 }}x
+                                
+                                #Crypto #Futures #{{ symbol.split('/')[0] }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <script>
+                function copySignalText() {
+                    const signalText = document.getElementById('signal-summary-text').innerText;
+                    navigator.clipboard.writeText(signalText)
+                        .then(() => {
+                            // Show success message
+                            const copyBtn = document.querySelector('.copy-signal-btn');
+                            const originalText = copyBtn.innerHTML;
+                            copyBtn.innerHTML = '<i class="fas fa-check me-1"></i> کپی شد';
+                            copyBtn.classList.add('btn-success');
+                            copyBtn.classList.remove('btn-outline-light');
+                            
+                            // Reset button after 2 seconds
+                            setTimeout(() => {
+                                copyBtn.innerHTML = originalText;
+                                copyBtn.classList.remove('btn-success');
+                                copyBtn.classList.add('btn-outline-light');
+                            }, 2000);
+                        })
+                        .catch(err => {
+                            console.error('مشکل در کپی کردن متن:', err);
+                            alert('متأسفانه نتوانستیم متن را کپی کنیم. لطفاً به صورت دستی متن را انتخاب کرده و کپی کنید.');
+                        });
+                }
+                </script>
+                
+                <div class="mt-3">
+                    <h6>سیگنال بر مبنای:</h6>
+                    <div class="reasons-list">
+                        {% for reason in signal.reasons.split(', ') %}
+                            <span>{{ reason }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">تحلیل تکنیکال:</h6>
+                        <button class="btn btn-sm btn-outline-info copy-analysis-btn" onclick="copyAnalysisText()">
+                            <i class="fas fa-copy me-1"></i> کپی تحلیل
+                        </button>
+                    </div>
+                    <div class="analysis-details p-3 border rounded" id="analysis-text">
+                        {% if signal.analysis %}
+                            {{ signal.analysis|replace('\n', '<br>')|safe }}
+                        {% else %}
+                            <p>تحلیل دقیق در حال حاضر در دسترس نیست.</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <script>
+                function copyAnalysisText() {
+                    // Get text without HTML tags
+                    const analysisDiv = document.getElementById('analysis-text');
+                    const analysisText = analysisDiv.innerText || analysisDiv.textContent;
+                    
+                    navigator.clipboard.writeText(analysisText)
+                        .then(() => {
+                            // Show success message
+                            const copyBtn = document.querySelector('.copy-analysis-btn');
+                            const originalText = copyBtn.innerHTML;
+                            copyBtn.innerHTML = '<i class="fas fa-check me-1"></i> کپی شد';
+                            copyBtn.classList.add('btn-success');
+                            copyBtn.classList.remove('btn-outline-info');
+                            
+                            // Reset button after 2 seconds
+                            setTimeout(() => {
+                                copyBtn.innerHTML = originalText;
+                                copyBtn.classList.remove('btn-success');
+                                copyBtn.classList.add('btn-outline-info');
+                            }, 2000);
+                        })
+                        .catch(err => {
+                            console.error('مشکل در کپی کردن تحلیل:', err);
+                            alert('متأسفانه نتوانستیم متن تحلیل را کپی کنیم. لطفاً به صورت دستی متن را انتخاب کرده و کپی کنید.');
+                        });
+                }
+                </script>
+                
+                {% if signal.image_url %}
+                <div class="mt-3 text-center">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">نمودار تحلیل تکنیکال:</h6>
+                        <a href="{{ signal.image_url }}" download="technical-analysis-{{ symbol.replace('/', '-') }}.png" class="btn btn-sm btn-outline-success">
+                            <i class="fas fa-download me-1"></i> دانلود تصویر
+                        </a>
+                    </div>
+                    <div class="position-relative">
+                        <img src="{{ signal.image_url }}" alt="تحلیل تکنیکال {{ symbol }}" class="img-fluid rounded analysis-image" id="analysis-image">
+                        {% if signal.signal == 'LONG' %}
+                        <div class="signal-badge signal-badge-long">سیگنال خرید</div>
+                        {% elif signal.signal == 'SHORT' %}
+                        <div class="signal-badge signal-badge-short">سیگنال فروش</div>
+                        {% endif %}
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">برای مشاهده جزئیات بیشتر روی تصویر کلیک کنید</small>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <style>
+                    .signal-badge {
+                        position: absolute;
+                        top: 10px;
+                        right: 10px;
+                        padding: 5px 10px;
+                        border-radius: 5px;
+                        font-weight: bold;
+                        color: white;
+                        font-size: 0.9rem;
+                    }
+                    .signal-badge-long {
+                        background-color: #28a745;
+                    }
+                    .signal-badge-short {
+                        background-color: #dc3545;
+                    }
+                    .analysis-image {
+                        max-height: 400px;
+                        object-fit: contain;
+                        width: 100%;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                    }
+                    .analysis-image:hover {
+                        transform: scale(1.02);
+                    }
+                    
+                    /* Image Modal for larger preview */
+                    #imageModal {
+                        display: none;
+                        position: fixed;
+                        z-index: 1000;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        height: 100%;
+                        background-color: rgba(0,0,0,0.9);
+                    }
+                    #modalImage {
+                        margin: 5% auto;
+                        display: block;
+                        max-width: 90%;
+                        max-height: 90%;
+                    }
+                    .close-modal {
+                        position: absolute;
+                        top: 15px;
+                        right: 35px;
+                        color: #f1f1f1;
+                        font-size: 40px;
+                        font-weight: bold;
+                        cursor: pointer;
+                    }
+                </style>
+                
+                <!-- Modal for image preview -->
+                <div id="imageModal">
+                    <span class="close-modal">&times;</span>
+                    <img id="modalImage" src="">
+                </div>
+                
+                <script>
+                    // Setup image preview modal
+                    const analysisImage = document.getElementById('analysis-image');
+                    const imageModal = document.getElementById('imageModal');
+                    const modalImage = document.getElementById('modalImage');
+                    const closeModal = document.querySelector('.close-modal');
+                    
+                    if (analysisImage) {
+                        analysisImage.addEventListener('click', function() {
+                            imageModal.style.display = 'block';
+                            modalImage.src = this.src;
+                        });
+                    }
+                    
+                    if (closeModal) {
+                        closeModal.addEventListener('click', function() {
+                            imageModal.style.display = 'none';
+                        });
+                    }
+                    
+                    // Close modal when clicking outside the image
+                    window.addEventListener('click', function(event) {
+                        if (event.target === imageModal) {
+                            imageModal.style.display = 'none';
+                        }
+                    });
+                </script>
+                
+                {% else %}
+                <p class="card-text">
+                    {% if signal.message %}
+                    {{ signal.message }}
+                    {% else %}
+                    هیچ سیگنال معاملاتی برای این ارز دیجیتال در زمان فعلی شناسایی نشد. ربات بازار را تحلیل کرده و نقطه ورود با اطمینان بالا پیدا نکرد.
+                    {% endif %}
+                </p>
+                {% endif %}
+                
+                <div class="mt-4">
+                    <a href="/" class="btn btn-primary">
+                        <i class="fas fa-search me-2"></i>
+                        تحلیل بازار دیگر
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        {% if news and news|length > 0 %}
+        <div class="card shadow mt-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-newspaper me-2"></i>
+                    اخبار و تحلیل فاندامنتال
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="news-container">
+                    {% for news_item in news %}
+                    <div class="news-item mb-3 p-3 border-bottom {% if news_item.sentiment == 'مثبت' %}positive-news{% elif news_item.sentiment == 'منفی' %}negative-news{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 news-title">{{ news_item.title }}</h6>
+                            <span class="badge {% if news_item.sentiment == 'مثبت' %}bg-success{% elif news_item.sentiment == 'منفی' %}bg-danger{% else %}bg-info{% endif %}">{{ news_item.sentiment }}</span>
+                        </div>
+                        <p class="news-description">{{ news_item.description }}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">{{ news_item.date }}</small>
+                            <a href="{{ news_item.url }}" target="_blank" class="btn btn-sm btn-outline-info">اطلاعات بیشتر</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="mt-3">
+                    <p class="text-info">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <strong>نکته:</strong> اخبار و تحلیل فاندامنتال می‌تواند به اندازه تحلیل تکنیکال در تصمیم‌گیری‌های معاملاتی مؤثر باشد.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="card shadow mt-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    درباره این سیگنال
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    این سیگنال معاملاتی بر اساس موارد زیر تولید شده است:
+                </p>
+                <ul>
+                    <li>تحلیل با سبک {{ signal.strategy_type|default("کلاسیک پرایس اکشن") }}</li>
+                    <li>تحلیل الگوهای قیمتی، شاخص‌های تکنیکال و ساختار بازار</li>
+                    <li>داده‌های تایم فریم {{ session.timeframe|default("۵ دقیقه‌ای") }} برای {{ symbol }}</li>
+                    <li>بررسی حجم معاملات و سطوح کلیدی عرضه و تقاضا</li>
+                </ul>
+                <p class="text-warning">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <strong>مهم:</strong> تمام سیگنال‌های معاملاتی باید به عنوان بخشی از یک استراتژی جامع مدیریت ریسک استفاده شوند. همیشه قبل از معامله، تحلیل خود را انجام دهید.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
