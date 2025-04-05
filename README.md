@@ -1,4 +1,4 @@
-# AEai Crypto Trading Bot | ربات معامله‌گر رمزارز AEai (v1)
+# AEai Crypto Trading Bot | ربات معامله‌گر رمزارز AEai (v1.0)
 
 ## Overview | معرفی
 
